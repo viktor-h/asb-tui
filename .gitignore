@@ -1,0 +1,28 @@
+# Binaries
+bin/
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+main
+
+# Go build/test artifacts
+*.test
+*.out
+coverage.out
+
+# Dependency/vendor mode
+vendor/
+
+# IDE/editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
