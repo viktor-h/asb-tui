@@ -14,10 +14,7 @@ func (m *Model) sortModeLabel() string {
 }
 
 func (m *Model) currentSpinner() string {
-	if len(spinnerFrames) == 0 {
-		return ""
-	}
-	return spinnerFrames[m.spinnerPos%len(spinnerFrames)]
+	return m.spinner.View()
 }
 
 func (m *Model) isStale() bool {

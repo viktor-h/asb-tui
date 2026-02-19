@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -16,7 +17,6 @@ import (
 )
 
 type tickMsg time.Time
-type spinnerTickMsg struct{}
 
 type queuesLoadedMsg struct {
 	queues []QueueMetrics
@@ -46,7 +46,7 @@ const (
 	focusDetail
 )
 
-var spinnerFrames = []string{"|", "/", "-", "\\"}
+const splitMinWidth = 96
 
 type keyMap struct {
 	Up          key.Binding
@@ -104,18 +104,17 @@ type Model struct {
 	showHelp   bool
 	fetching   bool
 	loadingTag string
-	spinnerPos int
 
 	filterInput textinput.Model
+	spinner     spinner.Model
 	table       table.Model
 	detail      viewport.Model
 	help        help.Model
 	keys        keyMap
 
-	lastRefreshAttempt time.Time
-	lastSuccess        time.Time
-	lastError          string
-	lastErrorAt        time.Time
+	lastSuccess time.Time
+	lastError   string
+	lastErrorAt time.Time
 
 	width  int
 	height int
@@ -176,30 +175,31 @@ func NewModel(
 	detail := viewport.New(20, 8)
 	detail.SetContent("Queue detail will appear here")
 
+	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot))
+
 	m := &Model{
-		cfg:                cfg,
-		authStatus:         authStatus,
-		styles:             style.New(),
-		fetchQueues:        fetchQueues,
-		fetchQueue:         fetchQueue,
-		sortMode:           sortByName,
-		focus:              focusList,
-		filterInput:        filter,
-		table:              tbl,
-		detail:             detail,
-		help:               helpModel,
-		keys:               newKeyMap(),
-		queues:             []QueueMetrics{},
-		filtered:           []QueueMetrics{},
-		spinnerPos:         0,
-		showHelp:           false,
-		fetching:           false,
-		loadingTag:         "",
-		selected:           0,
-		lastError:          "",
-		lastErrorAt:        time.Time{},
-		lastSuccess:        time.Time{},
-		lastRefreshAttempt: time.Time{},
+		cfg:         cfg,
+		authStatus:  authStatus,
+		styles:      style.New(),
+		fetchQueues: fetchQueues,
+		fetchQueue:  fetchQueue,
+		sortMode:    sortByName,
+		focus:       focusList,
+		filterInput: filter,
+		spinner:     sp,
+		table:       tbl,
+		detail:      detail,
+		help:        helpModel,
+		keys:        newKeyMap(),
+		queues:      []QueueMetrics{},
+		filtered:    []QueueMetrics{},
+		showHelp:    false,
+		fetching:    false,
+		loadingTag:  "",
+		selected:    0,
+		lastError:   "",
+		lastErrorAt: time.Time{},
+		lastSuccess: time.Time{},
 	}
 	m.setFocus(focusList)
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -21,24 +22,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.width < 96 && m.focus == focusDetail {
+		if m.width < splitMinWidth && m.focus == focusDetail {
 			m.setFocus(focusList)
 		}
 		m.help.Width = msg.Width
 		m.resizeTable()
 		m.resizeDetail()
 		return m, nil
+	case spinner.TickMsg:
+		if !m.fetching {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	case tickMsg:
 		if m.fetching {
 			return m, m.tickCmd()
 		}
 		return m, tea.Batch(m.tickCmd(), m.refreshAllQueuesCmd(false))
-	case spinnerTickMsg:
-		if !m.fetching {
-			return m, nil
-		}
-		m.spinnerPos = (m.spinnerPos + 1) % len(spinnerFrames)
-		return m, m.spinnerCmd()
 	case queuesLoadedMsg:
 		return m, m.handleQueuesLoaded(msg)
 	case queueLoadedMsg:
@@ -76,7 +78,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 	switch {
 	case key.Matches(msg, m.keys.ToggleFocus):
-		if m.width < 96 {
+		if m.width < splitMinWidth {
 			return nil
 		}
 		switch m.focus {
@@ -153,7 +155,6 @@ func (m *Model) handleQueuesLoaded(msg queuesLoadedMsg) tea.Cmd {
 	m.queues = msg.queues
 	m.lastSuccess = time.Now()
 	m.applyFilterAndSort()
-	m.syncDetailContent()
 	return nil
 }
 
@@ -185,7 +186,6 @@ func (m *Model) handleQueueLoaded(msg queueLoadedMsg) tea.Cmd {
 		m.queues = append(m.queues, msg.queue)
 	}
 	m.applyFilterAndSort()
-	m.syncDetailContent()
 	return nil
 }
 
@@ -196,11 +196,10 @@ func (m *Model) refreshAllQueuesCmd(manual bool) tea.Cmd {
 
 	m.fetching = true
 	m.loadingTag = "all"
-	m.lastRefreshAttempt = time.Now()
 	m.syncDetailContent()
 
 	return tea.Batch(
-		m.spinnerCmd(),
+		m.spinner.Tick,
 		func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 			defer cancel()
@@ -229,11 +228,10 @@ func (m *Model) refreshSelectedQueueCmd(manual bool) tea.Cmd {
 	queueName := m.filtered[m.selected].Name
 	m.fetching = true
 	m.loadingTag = "one: " + queueName
-	m.lastRefreshAttempt = time.Now()
 	m.syncDetailContent()
 
 	return tea.Batch(
-		m.spinnerCmd(),
+		m.spinner.Tick,
 		func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 			defer cancel()
@@ -252,12 +250,6 @@ func (m *Model) refreshSelectedQueueCmd(manual bool) tea.Cmd {
 func (m *Model) tickCmd() tea.Cmd {
 	return tea.Tick(m.cfg.RefreshInterval, func(t time.Time) tea.Msg {
 		return tickMsg(t)
-	})
-}
-
-func (m *Model) spinnerCmd() tea.Cmd {
-	return tea.Tick(120*time.Millisecond, func(time.Time) tea.Msg {
-		return spinnerTickMsg{}
 	})
 }
 

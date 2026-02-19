@@ -43,7 +43,7 @@ func (m *Model) renderHeader() string {
 
 func (m *Model) renderBody() string {
 	bodyHeight := max(6, m.height-4)
-	if m.width < 96 {
+	if m.width < splitMinWidth {
 		return m.renderQueueList(m.width, bodyHeight, m.focus == focusList)
 	}
 

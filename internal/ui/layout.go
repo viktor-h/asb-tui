@@ -35,7 +35,7 @@ func (m *Model) resizeTable() {
 		listHeight = 3
 	}
 	listWidth := m.width
-	if m.width >= 96 {
+	if m.width >= splitMinWidth {
 		listWidth = m.width / 2
 	}
 	listWidth = max(24, listWidth-2)
@@ -59,7 +59,7 @@ func (m *Model) resizeDetail() {
 		detailHeight = 3
 	}
 	detailWidth := m.width
-	if m.width >= 96 {
+	if m.width >= splitMinWidth {
 		detailWidth = m.width - (m.width / 2) - 1
 	}
 	detailWidth = max(24, detailWidth-2)
