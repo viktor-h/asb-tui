@@ -3,7 +3,6 @@ package asb
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus/admin"
@@ -77,10 +76,4 @@ func (c *Client) GetQueue(ctx context.Context, queueName string) (QueueSnapshot,
 		Dead:      int64(resp.DeadLetterMessageCount),
 		Transfer:  int64(resp.TransferDeadLetterMessageCount),
 	}, nil
-}
-
-func (c *Client) ListQueuesWithTimeout(timeout time.Duration) ([]QueueSnapshot, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	return c.ListQueues(ctx)
 }

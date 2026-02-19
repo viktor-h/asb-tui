@@ -33,7 +33,7 @@ Environment variables:
 go run ./cmd/asb-tui
 ```
 
-## Key Bindings (MVP)
+## Key Bindings
 
 - `j/k` or `up/down` move selection
 - `/` enter filter mode

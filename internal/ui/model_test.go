@@ -150,6 +150,52 @@ func TestKeyShiftRRefreshesAllQueues(t *testing.T) {
 	}
 }
 
+func TestDetailFocusRoutesNavigationToViewport(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m.width = 120
+	m.height = 40
+	m.resizeTable()
+	m.resizeDetail()
+	m.queues = []QueueMetrics{{Name: "orders", Active: 1}, {Name: "billing", Active: 2}}
+	m.applyFilterAndSort()
+	m.selected = 1
+	m.table.SetCursor(1)
+	m.setFocus(focusDetail)
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if m.selected != 1 {
+		t.Fatalf("expected table selection unchanged in detail focus, got %d", m.selected)
+	}
+}
+
+func TestResizeNarrowForcesListFocus(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m.setFocus(focusDetail)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
+	next := updated.(*Model)
+	if next.focus != focusList {
+		t.Fatalf("expected focusList after narrow resize, got %d", next.focus)
+	}
+}
+
+func TestGlobalHelpAndQuitWorkInFilterMode(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m.setFocus(focusFilter)
+	m.filterInput.Focus()
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	next := updated.(*Model)
+	if !next.showHelp {
+		t.Fatal("expected help to toggle while in filter mode")
+	}
+
+	_, cmd := next.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd == nil {
+		t.Fatal("expected quit command while in filter mode")
+	}
+}
+
 func TestThresholdExceeded(t *testing.T) {
 	if thresholdExceeded(5, -1) {
 		t.Fatal("threshold -1 disables warning")
