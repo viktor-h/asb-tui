@@ -569,16 +569,15 @@ func (m *Model) syncDetailContent() {
 				if reason == "" {
 					reason = "-"
 				}
-				line := fmt.Sprintf("%s %d. id=%s seq=%d delivery=%d reason=%s body=%s",
+				line := fmt.Sprintf("%s %d. id=%s seq=%d delivery=%d",
 					prefix,
 					i+1,
 					clip(msg.MessageID, 24),
 					msg.SequenceNumber,
 					msg.DeliveryCount,
-					clip(reason, 18),
-					clip(strings.ReplaceAll(msg.Body, "\n", " "), 48),
 				)
 				content = append(content, line)
+				content = append(content, "   reason="+clip(strings.ReplaceAll(reason, "\n", " "), 56))
 				if msg.DeadLetterErrorDescription != "" {
 					content = append(content, "   error="+clip(strings.ReplaceAll(msg.DeadLetterErrorDescription, "\n", " "), 80))
 				}

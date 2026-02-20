@@ -375,3 +375,25 @@ func TestDetailFocusJKSelectsDLQMessage(t *testing.T) {
 		t.Fatalf("expected selected index 0, got %d", m.dlqSelected)
 	}
 }
+
+func TestDLQListShowsReasonPreview(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
+	m.width = 120
+	m.height = 40
+	m.resizeTable()
+	m.resizeDetail()
+	m.queues = []QueueMetrics{{Name: "orders", Dead: 1}}
+	m.applyFilterAndSort()
+	m.dlqQueueName = "orders"
+	m.dlqMessages = []DLQMessage{{
+		MessageID:        "m1",
+		DeadLetterReason: "ValidationFailed: missing customer id",
+		Body:             `{"event":"order.submitted"}`,
+	}}
+	m.syncDetailContent()
+
+	detail := m.detail.View()
+	if !strings.Contains(detail, "reason=ValidationFailed") {
+		t.Fatalf("expected reason preview in detail, got: %q", detail)
+	}
+}
