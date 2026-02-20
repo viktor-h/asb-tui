@@ -10,6 +10,7 @@ func TestLoadParsesValues(t *testing.T) {
 	getenv := func(key string) string {
 		values := map[string]string{
 			"ASB_NAMESPACE":             "demo.servicebus.windows.net",
+			"ASB_USE_FAKE":              "false",
 			"ASB_REFRESH_SECONDS":       "15",
 			"ASB_ACTIVE_WARN_THRESHOLD": "100",
 			"ASB_DLQ_WARN_THRESHOLD":    "2",
@@ -26,6 +27,9 @@ func TestLoadParsesValues(t *testing.T) {
 
 	if cfg.Namespace != "demo.servicebus.windows.net" {
 		t.Fatalf("unexpected namespace: %s", cfg.Namespace)
+	}
+	if cfg.UseFake {
+		t.Fatal("expected fake mode disabled")
 	}
 	if cfg.RefreshInterval != 15*time.Second {
 		t.Fatalf("unexpected refresh interval: %s", cfg.RefreshInterval)
@@ -50,6 +54,40 @@ func TestLoadRequiresNamespace(t *testing.T) {
 		t.Fatal("expected namespace error")
 	}
 	if !strings.Contains(err.Error(), "ASB_NAMESPACE") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoadAllowsMissingNamespaceInFakeMode(t *testing.T) {
+	cfg, err := load(func(key string) string {
+		if key == "ASB_USE_FAKE" {
+			return "true"
+		}
+		return ""
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !cfg.UseFake {
+		t.Fatal("expected fake mode enabled")
+	}
+	if cfg.Namespace != "fake.servicebus.windows.net" {
+		t.Fatalf("unexpected namespace: %s", cfg.Namespace)
+	}
+}
+
+func TestLoadRejectsInvalidUseFakeValue(t *testing.T) {
+	_, err := load(func(key string) string {
+		values := map[string]string{
+			"ASB_NAMESPACE": "demo.servicebus.windows.net",
+			"ASB_USE_FAKE":  "not-a-bool",
+		}
+		return values[key]
+	})
+	if err == nil {
+		t.Fatal("expected ASB_USE_FAKE error")
+	}
+	if !strings.Contains(err.Error(), "ASB_USE_FAKE") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

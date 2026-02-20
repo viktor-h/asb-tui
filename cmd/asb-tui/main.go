@@ -19,7 +19,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	asbClient, authStatus := asb.NewClient(cfg.Namespace)
+	var (
+		asbClient  asb.QueueClient
+		authStatus asb.AuthStatus
+		realClient *asb.Client
+		fakeClient *asb.FakeClient
+	)
+	if cfg.UseFake {
+		fakeClient, authStatus = asb.NewFakeClient()
+		asbClient = fakeClient
+	} else {
+		realClient, authStatus = asb.NewClient(cfg.Namespace)
+		asbClient = realClient
+	}
 
 	var fetcher func(ctx context.Context) ([]ui.QueueMetrics, error)
 	var fetchOne func(ctx context.Context, queueName string) (ui.QueueMetrics, error)

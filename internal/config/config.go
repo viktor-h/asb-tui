@@ -12,10 +12,13 @@ const (
 	defaultRefreshSeconds = 10
 	defaultDLQFetchMode   = "peek"
 	defaultDLQFetchCount  = 10
+	defaultUseFake        = false
+	fakeNamespace         = "fake.servicebus.windows.net"
 )
 
 type Config struct {
 	Namespace           string
+	UseFake             bool
 	RefreshInterval     time.Duration
 	ActiveWarnThreshold int64
 	DLQWarnThreshold    int64
@@ -28,9 +31,17 @@ func Load() (Config, error) {
 }
 
 func load(getenv func(string) string) (Config, error) {
+	useFake, err := parseOptionalBool(getenv("ASB_USE_FAKE"), defaultUseFake)
+	if err != nil {
+		return Config{}, fmt.Errorf("ASB_USE_FAKE: %w", err)
+	}
+
 	namespace := strings.TrimSpace(getenv("ASB_NAMESPACE"))
-	if namespace == "" {
+	if namespace == "" && !useFake {
 		return Config{}, fmt.Errorf("ASB_NAMESPACE is required")
+	}
+	if namespace == "" {
+		namespace = fakeNamespace
 	}
 
 	refreshSeconds, err := parseOptionalInt(getenv("ASB_REFRESH_SECONDS"), defaultRefreshSeconds)
@@ -73,12 +84,27 @@ func load(getenv func(string) string) (Config, error) {
 
 	return Config{
 		Namespace:           namespace,
+		UseFake:             useFake,
 		RefreshInterval:     time.Duration(refreshSeconds) * time.Second,
 		ActiveWarnThreshold: activeWarnThreshold,
 		DLQWarnThreshold:    dlqWarnThreshold,
 		DLQFetchMode:        dlqFetchMode,
 		DLQFetchCount:       dlqFetchCount,
 	}, nil
+}
+
+func parseOptionalBool(raw string, fallback bool) (bool, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("must be a boolean")
+	}
+
+	return parsed, nil
 }
 
 func parseDLQFetchMode(raw string, fallback string) (string, error) {

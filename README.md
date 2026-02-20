@@ -23,6 +23,9 @@ Environment variables:
 
 - `ASB_NAMESPACE` (required)
   Example: `my-namespace.servicebus.windows.net`
+- `ASB_USE_FAKE` (optional, default `false`)
+  - set to `true` to run with deterministic in-memory queue data
+  - when enabled, `ASB_NAMESPACE` is optional and defaults to `fake.servicebus.windows.net`
 - `ASB_REFRESH_SECONDS` (optional, default `10`)
 - `ASB_ACTIVE_WARN_THRESHOLD` (optional)
 - `ASB_DLQ_WARN_THRESHOLD` (optional)
@@ -34,6 +37,12 @@ Environment variables:
 
 ```bash
 go run ./cmd/asb-tui
+```
+
+Run with fake data:
+
+```bash
+ASB_USE_FAKE=true go run ./cmd/asb-tui
 ```
 
 ## Key Bindings

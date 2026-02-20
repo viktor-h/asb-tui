@@ -23,6 +23,12 @@ type QueueSnapshot struct {
 	Transfer  int64
 }
 
+type QueueClient interface {
+	ListQueues(ctx context.Context) ([]QueueSnapshot, error)
+	GetQueue(ctx context.Context, queueName string) (QueueSnapshot, error)
+	FetchDeadLetterMessages(ctx context.Context, queueName string, mode string, maxMessages int) ([]DeadLetterMessage, error)
+}
+
 type Client struct {
 	admin *admin.Client
 	data  *azservicebus.Client
