@@ -23,6 +23,7 @@ func main() {
 
 	var fetcher func(ctx context.Context) ([]ui.QueueMetrics, error)
 	var fetchOne func(ctx context.Context, queueName string) (ui.QueueMetrics, error)
+	var fetchDLQ func(ctx context.Context, queueName string, mode string, maxMessages int) ([]ui.DLQMessage, error)
 	if asbClient != nil {
 		fetcher = func(ctx context.Context) ([]ui.QueueMetrics, error) {
 			snapshots, err := asbClient.ListQueues(ctx)
@@ -45,9 +46,30 @@ func main() {
 				Transfer:  snapshot.Transfer,
 			}, nil
 		}
+
+		fetchDLQ = func(ctx context.Context, queueName string, mode string, maxMessages int) ([]ui.DLQMessage, error) {
+			messages, err := asbClient.FetchDeadLetterMessages(ctx, queueName, mode, maxMessages)
+			if err != nil {
+				return nil, err
+			}
+
+			dlqMessages := make([]ui.DLQMessage, 0, len(messages))
+			for _, msg := range messages {
+				dlqMessages = append(dlqMessages, ui.DLQMessage{
+					MessageID:                  msg.MessageID,
+					SequenceNumber:             msg.SequenceNumber,
+					DeliveryCount:              msg.DeliveryCount,
+					DeadLetterReason:           msg.DeadLetterReason,
+					DeadLetterErrorDescription: msg.DeadLetterErrorDescription,
+					Body:                       msg.Body,
+				})
+			}
+
+			return dlqMessages, nil
+		}
 	}
 
-	program := tea.NewProgram(ui.NewModel(cfg, authStatus, fetcher, fetchOne), tea.WithAltScreen())
+	program := tea.NewProgram(ui.NewModel(cfg, authStatus, fetcher, fetchOne, fetchDLQ), tea.WithAltScreen())
 	if _, err := program.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "runtime error: %v\n", err)
 		os.Exit(1)

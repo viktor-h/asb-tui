@@ -128,7 +128,7 @@ func (m *Model) renderStatusBar() string {
 	}
 
 	line := "STATUS  " + auth + "  " + state + "  refresh: " + m.cfg.RefreshInterval.String() +
-		"  " + lastSuccess + "  sort: " + m.sortModeLabel() + errorText
+		"  " + lastSuccess + "  sort: " + m.sortModeLabel() + "  dlq: " + m.dlqMode + "/" + fmt.Sprintf("%d", m.dlqFetchCount) + errorText
 	line = truncateSingleLine(line, m.width)
 	return m.styles.StatusBar.Width(max(1, m.width)).Render(line)
 }

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -59,4 +60,36 @@ func queueNameColumnWidth(totalWidth int) int {
 		return 42
 	}
 	return width
+}
+
+func formatMessageBody(body string) (string, bool) {
+	trimmed := strings.TrimSpace(body)
+	if trimmed == "" {
+		return "", false
+	}
+
+	var decoded any
+	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+		return body, false
+	}
+
+	formatted, err := json.MarshalIndent(decoded, "", "  ")
+	if err != nil {
+		return body, false
+	}
+
+	return string(formatted), true
+}
+
+func clampDLQFetchCount(value int) int {
+	if value <= 0 {
+		return defaultDLQFetchCount
+	}
+	if value < minDLQFetchCount {
+		return minDLQFetchCount
+	}
+	if value > maxDLQFetchCount {
+		return maxDLQFetchCount
+	}
+	return value
 }

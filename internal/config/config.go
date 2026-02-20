@@ -10,6 +10,8 @@ import (
 
 const (
 	defaultRefreshSeconds = 10
+	defaultDLQFetchMode   = "peek"
+	defaultDLQFetchCount  = 10
 )
 
 type Config struct {
@@ -17,6 +19,8 @@ type Config struct {
 	RefreshInterval     time.Duration
 	ActiveWarnThreshold int64
 	DLQWarnThreshold    int64
+	DLQFetchMode        string
+	DLQFetchCount       int
 }
 
 func Load() (Config, error) {
@@ -47,11 +51,24 @@ func load(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("ASB_DLQ_WARN_THRESHOLD: %w", err)
 	}
 
+	dlqFetchMode, err := parseDLQFetchMode(getenv("ASB_DLQ_FETCH_MODE"), defaultDLQFetchMode)
+	if err != nil {
+		return Config{}, fmt.Errorf("ASB_DLQ_FETCH_MODE: %w", err)
+	}
+
+	dlqFetchCount, err := parseOptionalInt(getenv("ASB_DLQ_FETCH_COUNT"), defaultDLQFetchCount)
+	if err != nil {
+		return Config{}, fmt.Errorf("ASB_DLQ_FETCH_COUNT: %w", err)
+	}
+
 	if activeWarnThreshold < -1 {
 		return Config{}, fmt.Errorf("ASB_ACTIVE_WARN_THRESHOLD must be -1 or higher")
 	}
 	if dlqWarnThreshold < -1 {
 		return Config{}, fmt.Errorf("ASB_DLQ_WARN_THRESHOLD must be -1 or higher")
+	}
+	if dlqFetchCount <= 0 {
+		return Config{}, fmt.Errorf("ASB_DLQ_FETCH_COUNT must be greater than 0")
 	}
 
 	return Config{
@@ -59,7 +76,23 @@ func load(getenv func(string) string) (Config, error) {
 		RefreshInterval:     time.Duration(refreshSeconds) * time.Second,
 		ActiveWarnThreshold: activeWarnThreshold,
 		DLQWarnThreshold:    dlqWarnThreshold,
+		DLQFetchMode:        dlqFetchMode,
+		DLQFetchCount:       dlqFetchCount,
 	}, nil
+}
+
+func parseDLQFetchMode(raw string, fallback string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		value = fallback
+	}
+
+	switch value {
+	case "peek", "peeklock", "receiveanddelete":
+		return value, nil
+	default:
+		return "", fmt.Errorf("must be one of: peek, peeklock, receiveanddelete")
+	}
 }
 
 func parseOptionalInt(raw string, fallback int) (int, error) {

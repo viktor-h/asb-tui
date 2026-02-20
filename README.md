@@ -26,6 +26,9 @@ Environment variables:
 - `ASB_REFRESH_SECONDS` (optional, default `10`)
 - `ASB_ACTIVE_WARN_THRESHOLD` (optional)
 - `ASB_DLQ_WARN_THRESHOLD` (optional)
+- `ASB_DLQ_FETCH_MODE` (optional, default `peek`)
+  - supported values: `peek`, `peeklock`, `receiveanddelete`
+- `ASB_DLQ_FETCH_COUNT` (optional, default `10`)
 
 ## Run
 
@@ -43,8 +46,15 @@ go run ./cmd/asb-tui
 - `s` cycle sort
 - `r` refresh selected queue
 - `R` refresh all queues
+- `D` prompt for dead-letter fetch count, then fetch
+- `m` cycle dead-letter fetch mode (`peek` -> `peeklock` -> `receiveanddelete`)
+- `j/k` in detail pane selects a fetched dead-letter message
+- `enter` opens full selected dead-letter message body
+- `esc` closes full message body view
 - `?` help
 - `q` quit
+
+When mode is `receiveanddelete`, fetching dead-letter messages is destructive: messages are removed as soon as they are received.
 
 
 ## Development
@@ -60,4 +70,3 @@ Suggested structure:
 - `internal/asb/` Azure Service Bus read client
 - `internal/ui/` Bubble Tea model/update/view
 - `internal/ui/style/` Lip Gloss theme styles
-

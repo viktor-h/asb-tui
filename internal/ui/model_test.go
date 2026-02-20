@@ -18,7 +18,7 @@ func testConfig() config.Config {
 }
 
 func TestNewModelInitializesState(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 
 	if m.cfg.Namespace == "" {
 		t.Fatal("expected namespace to be set")
@@ -35,7 +35,7 @@ func TestNewModelInitializesState(t *testing.T) {
 }
 
 func TestQueuesLoadedSuccessUpdatesState(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 	m.lastError = "old"
 
 	updated, _ := m.Update(queuesLoadedMsg{queues: []QueueMetrics{{Name: "orders", Active: 2}}})
@@ -53,7 +53,7 @@ func TestQueuesLoadedSuccessUpdatesState(t *testing.T) {
 }
 
 func TestQueuesLoadedErrorPreservesExistingData(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 	m.queues = []QueueMetrics{{Name: "orders", Active: 1}}
 	m.applyFilterAndSort()
 
@@ -69,7 +69,7 @@ func TestQueuesLoadedErrorPreservesExistingData(t *testing.T) {
 }
 
 func TestFilterModeTypingAndExit(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 	m.queues = []QueueMetrics{{Name: "orders"}, {Name: "billing"}}
 	m.applyFilterAndSort()
 
@@ -96,7 +96,7 @@ func TestFilterModeTypingAndExit(t *testing.T) {
 }
 
 func TestStatusBarIsSingleLine(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 	m.width = 60
 	m.lastError = "some very long error message that should get clipped"
 
@@ -114,6 +114,7 @@ func TestKeyRRefreshesSelectedQueue(t *testing.T) {
 		asb.AuthStatus{Ready: true, Message: "ok"},
 		func(context.Context) ([]QueueMetrics, error) { return nil, nil },
 		func(context.Context, string) (QueueMetrics, error) { return QueueMetrics{}, nil },
+		nil,
 	)
 	m.queues = []QueueMetrics{{Name: "orders"}, {Name: "billing"}}
 	m.applyFilterAndSort()
@@ -136,6 +137,7 @@ func TestKeyShiftRRefreshesAllQueues(t *testing.T) {
 		asb.AuthStatus{Ready: true, Message: "ok"},
 		func(context.Context) ([]QueueMetrics, error) { return nil, nil },
 		nil,
+		nil,
 	)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'R'}})
@@ -151,7 +153,7 @@ func TestKeyShiftRRefreshesAllQueues(t *testing.T) {
 }
 
 func TestDetailFocusRoutesNavigationToViewport(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 	m.width = 120
 	m.height = 40
 	m.resizeTable()
@@ -169,7 +171,7 @@ func TestDetailFocusRoutesNavigationToViewport(t *testing.T) {
 }
 
 func TestResizeNarrowForcesListFocus(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 	m.setFocus(focusDetail)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 30})
@@ -180,7 +182,7 @@ func TestResizeNarrowForcesListFocus(t *testing.T) {
 }
 
 func TestGlobalHelpAndQuitWorkInFilterMode(t *testing.T) {
-	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil)
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
 	m.setFocus(focusFilter)
 	m.filterInput.Focus()
 
@@ -205,5 +207,171 @@ func TestThresholdExceeded(t *testing.T) {
 	}
 	if thresholdExceeded(5, 5) {
 		t.Fatal("expected strict greater-than")
+	}
+}
+
+func TestDefaultDLQModeIsPeek(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
+	if m.dlqMode != dlqFetchModePeek {
+		t.Fatalf("expected default dlq mode peek, got %q", m.dlqMode)
+	}
+}
+
+func TestCycleDLQMode(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	if m.dlqMode != dlqFetchModePeekLock {
+		t.Fatalf("expected peeklock, got %q", m.dlqMode)
+	}
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	if m.dlqMode != dlqFetchModeReceiveAndDelete {
+		t.Fatalf("expected receiveanddelete, got %q", m.dlqMode)
+	}
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	if m.dlqMode != dlqFetchModePeek {
+		t.Fatalf("expected peek, got %q", m.dlqMode)
+	}
+}
+
+func TestReceiveAndDeleteWarningInDetail(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
+	m.queues = []QueueMetrics{{Name: "orders", Dead: 1}}
+	m.applyFilterAndSort()
+	m.detail.Height = 100
+	m.detail.Width = 200
+	m.dlqMode = dlqFetchModeReceiveAndDelete
+	m.syncDetailContent()
+
+	if !strings.Contains(m.detail.View(), "receiveanddelete removes messages") {
+		t.Fatal("expected receiveanddelete warning in detail pane")
+	}
+}
+
+func TestDLQFetchOpensPromptWithPrefilledCount(t *testing.T) {
+	m := NewModel(
+		testConfig(),
+		asb.AuthStatus{Ready: true, Message: "ok"},
+		func(context.Context) ([]QueueMetrics, error) { return nil, nil },
+		nil,
+		func(context.Context, string, string, int) ([]DLQMessage, error) { return nil, nil },
+	)
+	m.queues = []QueueMetrics{{Name: "orders"}}
+	m.applyFilterAndSort()
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'D'}})
+	if cmd != nil {
+		t.Fatal("expected D to open prompt only")
+	}
+	if !m.dlqPromptActive {
+		t.Fatal("expected prompt to be active")
+	}
+	if m.fetching {
+		t.Fatal("expected not fetching before entering prompt value")
+	}
+	if m.dlqCountInput.Value() != "10" {
+		t.Fatalf("expected prefilled count 10, got %q", m.dlqCountInput.Value())
+	}
+}
+
+func TestDLQPromptEnterStartsFetch(t *testing.T) {
+	m := NewModel(
+		testConfig(),
+		asb.AuthStatus{Ready: true, Message: "ok"},
+		func(context.Context) ([]QueueMetrics, error) { return nil, nil },
+		nil,
+		func(context.Context, string, string, int) ([]DLQMessage, error) { return nil, nil },
+	)
+	m.queues = []QueueMetrics{{Name: "orders"}}
+	m.applyFilterAndSort()
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'D'}})
+	m.dlqCountInput.SetValue("23")
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected enter to start fetch")
+	}
+	if m.dlqPromptActive {
+		t.Fatal("expected prompt to close after valid enter")
+	}
+	if m.dlqFetchCount != 23 {
+		t.Fatalf("expected count 23, got %d", m.dlqFetchCount)
+	}
+	if !m.fetching {
+		t.Fatal("expected fetching true after enter")
+	}
+}
+
+func TestDLQPromptEscCancels(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
+	m.queues = []QueueMetrics{{Name: "orders"}}
+	m.applyFilterAndSort()
+	m.startDLQPrompt()
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd != nil {
+		t.Fatal("expected no command on prompt cancel")
+	}
+	if m.dlqPromptActive {
+		t.Fatal("expected prompt to close on esc")
+	}
+}
+
+func TestEnterOpensDLQBodyAndEscCloses(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
+	m.width = 120
+	m.height = 40
+	m.resizeTable()
+	m.resizeDetail()
+	m.queues = []QueueMetrics{{Name: "orders", Dead: 2}}
+	m.applyFilterAndSort()
+	m.dlqQueueName = "orders"
+	m.dlqMessages = []DLQMessage{{MessageID: "m1", Body: "{\"kind\":\"invoice\",\"id\":7}"}}
+	m.dlqSelected = 0
+	m.setFocus(focusDetail)
+	m.syncDetailContent()
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !m.dlqBodyViewer {
+		t.Fatal("expected enter to open body viewer")
+	}
+	if !strings.Contains(m.detail.View(), "Body (pretty JSON)") {
+		t.Fatal("expected pretty JSON body label")
+	}
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.dlqBodyViewer {
+		t.Fatal("expected esc to close body viewer")
+	}
+	if !strings.Contains(m.detail.View(), "Dead-letter messages") {
+		t.Fatal("expected detail to return to message list")
+	}
+}
+
+func TestDetailFocusJKSelectsDLQMessage(t *testing.T) {
+	m := NewModel(testConfig(), asb.AuthStatus{Ready: true, Message: "ok"}, nil, nil, nil)
+	m.width = 120
+	m.height = 40
+	m.resizeTable()
+	m.resizeDetail()
+	m.queues = []QueueMetrics{{Name: "orders", Dead: 2}}
+	m.applyFilterAndSort()
+	m.dlqQueueName = "orders"
+	m.dlqMessages = []DLQMessage{{MessageID: "m1", Body: "a"}, {MessageID: "m2", Body: "b"}}
+	m.dlqSelected = 0
+	m.setFocus(focusDetail)
+	m.syncDetailContent()
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if m.dlqSelected != 1 {
+		t.Fatalf("expected selected index 1, got %d", m.dlqSelected)
+	}
+
+	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	if m.dlqSelected != 0 {
+		t.Fatalf("expected selected index 0, got %d", m.dlqSelected)
 	}
 }
