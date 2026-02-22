@@ -188,7 +188,7 @@ func NewModel(
 	fetchQueues func(ctx context.Context) ([]QueueMetrics, error),
 	fetchQueue func(ctx context.Context, queueName string) (QueueMetrics, error),
 	fetchDLQ func(ctx context.Context, queueName string, mode string, maxMessages int) ([]DLQMessage, error),
-) *Model {
+) Model {
 	filter := textinput.New()
 	filter.Placeholder = "filter queues"
 	filter.Prompt = "filter> "
@@ -231,7 +231,7 @@ func NewModel(
 
 	sp := spinner.New(spinner.WithSpinner(spinner.MiniDot))
 
-	m := &Model{
+	m := Model{
 		cfg:             cfg,
 		authStatus:      authStatus,
 		styles:          style.New(),
@@ -267,8 +267,7 @@ func NewModel(
 		dlqPromptActive: false,
 		dlqPromptError:  "",
 	}
-	m.setFocus(focusList)
-
-	m.applyFilterAndSort()
+	m = m.setFocus(focusList)
+	m = m.applyFilterAndSort()
 	return m
 }

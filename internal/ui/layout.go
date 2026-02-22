@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 )
 
-func (m *Model) syncTableRows() {
+func (m Model) syncTableRows() Model {
 	rows := make([]table.Row, 0, len(m.filtered))
 	for _, q := range m.filtered {
 		rows = append(rows, table.Row{
@@ -20,15 +20,16 @@ func (m *Model) syncTableRows() {
 	if len(rows) == 0 {
 		m.table.SetCursor(0)
 		m.selected = 0
-		return
+		return m
 	}
 	if m.selected >= len(rows) {
 		m.selected = len(rows) - 1
 	}
 	m.table.SetCursor(m.selected)
+	return m
 }
 
-func (m *Model) resizeTable() {
+func (m Model) resizeTable() Model {
 	bodyHeight := max(6, m.height-4)
 	listHeight := bodyHeight - 2
 	if listHeight < 3 {
@@ -49,10 +50,10 @@ func (m *Model) resizeTable() {
 	m.table.SetColumns(columns)
 	m.table.SetWidth(listWidth)
 	m.table.SetHeight(listHeight)
-	m.syncTableRows()
+	return m.syncTableRows()
 }
 
-func (m *Model) resizeDetail() {
+func (m Model) resizeDetail() Model {
 	bodyHeight := max(6, m.height-4)
 	detailHeight := bodyHeight - 2
 	if detailHeight < 3 {
@@ -65,4 +66,5 @@ func (m *Model) resizeDetail() {
 	detailWidth = max(24, detailWidth-2)
 	m.detail.Width = detailWidth
 	m.detail.Height = detailHeight
+	return m
 }

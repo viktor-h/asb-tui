@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m *Model) View() string {
+func (m Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return "Loading UI..."
 	}
@@ -21,7 +21,7 @@ func (m *Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, header, body, help, status)
 }
 
-func (m *Model) renderHeader() string {
+func (m Model) renderHeader() string {
 	left := m.styles.Header.Render("ASB TUI") + " " + m.styles.HeaderBadge.Render(m.cfg.Namespace)
 
 	filterLabel := m.filterInput.View()
@@ -41,7 +41,7 @@ func (m *Model) renderHeader() string {
 	return truncateSingleLine(line, m.width)
 }
 
-func (m *Model) renderBody() string {
+func (m Model) renderBody() string {
 	bodyHeight := max(6, m.height-4)
 	if m.width < splitMinWidth {
 		return m.renderQueueList(m.width, bodyHeight, m.focus == focusList)
@@ -54,7 +54,7 @@ func (m *Model) renderBody() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right)
 }
 
-func (m *Model) renderQueueList(width, height int, focused bool) string {
+func (m Model) renderQueueList(width, height int, focused bool) string {
 	pane := m.styles.Pane
 	if focused {
 		pane = m.styles.PaneFocused
@@ -79,17 +79,19 @@ func (m *Model) renderQueueList(width, height int, focused bool) string {
 	return pane.Width(width).Height(height).Render(title + "\n" + m.table.View())
 }
 
-func (m *Model) renderQueueDetail(width, height int) string {
+func (m Model) renderQueueDetail(width, height int) string {
 	pane := m.styles.Pane
 	if m.focus == focusDetail {
 		pane = m.styles.PaneFocused
 	}
 
 	title := m.styles.PaneTitle.Render("Queue Detail")
-	return pane.Width(width).Height(height).Render(title + "\n" + m.detail.View())
+	detail := m.detail
+	detail.SetContent(m.detailContent())
+	return pane.Width(width).Height(height).Render(title + "\n" + detail.View())
 }
 
-func (m *Model) renderHelpLine() string {
+func (m Model) renderHelpLine() string {
 	line := m.help.View(m.keys)
 	if !m.showHelp {
 		return truncateSingleLine(line, m.width)
@@ -97,7 +99,7 @@ func (m *Model) renderHelpLine() string {
 	return line
 }
 
-func (m *Model) renderStatusBar() string {
+func (m Model) renderStatusBar() string {
 	auth := "auth: ready"
 	if !m.authStatus.Ready {
 		auth = "auth: unavailable"
